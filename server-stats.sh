@@ -1,13 +1,21 @@
-#! /usr/bin/env bash
+#! /bin/sh
 
 # Server Performance Stats
 # Purpose: Script should be able to analyse basic server performance at a glance.
 
-# Requirements:
+# Sever Uptime
+echo "=====SYSTEM STATUS====="
+uptime
+
+echo ""
+echo "=====LOGGED ON USERS====="
+who
+unique_users=$(who | cut -d' ' -f1 | sort -u | wc -l)
+echo "Total unique users logged in: $unique_users"
 
 # OS Version:
-echo "OS Information"
-cat /etc/os-release | grep -E '^(NAME|VERSION)=' /etc/os-release | awk -F= '{print $2}' | tr -d '"'
+os=$(cat /etc/os-release | grep -E '^(NAME|VERSION)=' /etc/os-release | awk -F= '{print $2}' | tr -d '"')
+echo "OS Information: $os"
 
 # Total CPU usage
 number_of_cores=$(nproc)
@@ -33,9 +41,5 @@ ps -eo pid,cmd,%cpu,%mem --sort=-%cpu | head -n 6
 echo "Top 5 processes by Memory"
 ps -eo pid,cmd,%cpu,%mem --sort=-%mem | head -n 6
 
-# Stretch Goals:
-# OS version
-# Uptime
 # Load average
-# Logged in users
 # Failed login attempts
