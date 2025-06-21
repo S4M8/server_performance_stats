@@ -4,42 +4,75 @@
 # Purpose: Script should be able to analyse basic server performance at a glance.
 
 # Sever Uptime
-echo "=====SYSTEM STATUS====="
+echo "==SYSTEM STATUS=="
 uptime
 
+# User Information
 echo ""
-echo "=====LOGGED ON USERS====="
+echo "==LOGGED ON USERS=="
 who
 unique_users=$(who | cut -d' ' -f1 | sort -u | wc -l)
 echo "Total unique users logged in: $unique_users"
 
-# OS Version:
-os=$(cat /etc/os-release | grep -E '^(NAME|VERSION)=' /etc/os-release | awk -F= '{print $2}' | tr -d '"')
-echo "OS Information: $os"
+echo ""
+echo "=== RECENT FAILED LOGIN ATTEMPTS ==="
+if [ -r /var/log/messages ]; then
+  echo "Checking system messages for failed attempts:"
+  grep -i "fail" /var/log/messages 2>/dev/null | tail -5 || echo "No recent failed attempts found"
+fi
 
-# Total CPU usage
-number_of_cores=$(nproc)
-total_cpu=$(ps -Ao pcpu | awk 'NR>1 {sum+=$1} END {print sum}')
+if [ -r /var/log/auth.log ]; then
+  echo "Checking auth log:"
+  grep "Failed" /var/log/auth.log 2>/dev/null | tail -5 || echo "No failed attempts in auth.log"
+elif [ -r /var/log/secure ]; then
+  echo "Checking secure log:"
+  grep "fail" /var/log/secure 2>/dev/null | tail -5 || echo "No failed attempts in secure log"
+fi
 
-average_per_core=$(awk -v total="$total_cpu" -v cores="$number_of_cores" 'BEGIN {print total/cores}')
+echo ""
+echo "=== SYSTEM RESOURCES ==="
 
-echo "Total CPU usage: $total_cpu%"
+# CPU information
+number_of_cores=$(grep -c "^processor" /proc/cpuinfo 2>/dev/null || echo "unknown")
 echo "Number of CPU cores: $number_of_cores"
-echo "Average CPU usage per core: $average_per_core%"
 
-# Total memory usage
-free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3, $2, $3*100/$2}'
+# Memory usage
+if [ -r /proc/meminfo ]; then
+  mem_total=$(grep "^MemTotal:" /proc/meminfo | awk '{print $2}')
+  mem_free=$(grep "^MemFree:" /proc/meminfo | awk '{print $2}')
+  mem_available=$(grep "^MemAvailable:" /proc/meminfo | awk '{print $2}')
 
-# Total disk usage
-df -h | awk 'NR==2{printf "Disk Usage: %s/%s (%s used)\n", $3, $2, $5}'
+  if [ -n "$mem_total" ] && [ -n "$mem_available" ]; then
+    mem_used=$((mem_total - mem_available))
+    mem_percent=$(awk "BEGIN {printf \"%.2f\", ($mem_used/$mem_total)*100}")
+    mem_total_mb=$((mem_total / 1024))
+    mem_used_mb=$((mem_used / 1024))
+    echo "Memory Usage: ${mem_used_mb}/${mem_total_mb}MB (${mem_percent}%)"
+  fi
+fi
 
-# Top 5 processes by CPU usage
-echo "Top 5 processes by CPU"
-ps -eo pid,cmd,%cpu,%mem --sort=-%cpu | head -n 6
+# Disk usage
+echo "Disk Usage:"
+df / | awk 'NR==2{print "Root filesystem: " $3 "/" $2 " (" $5 " used)"}'
 
-# Top 5 processes by memory usage
-echo "Top 5 processes by Memory"
-ps -eo pid,cmd,%cpu,%mem --sort=-%mem | head -n 6
+# Process information
+echo ""
+echo "Top processes by CPU:"
+ps -eo pid,comm,pcpu,pmem | sort -k3 -nr | head -6
 
-# Load average
-# Failed login attempts
+echo ""
+echo "Top processes by memory:"
+ps -eo pid,comm,pcpu,pmem | sort -k4 -nr | head -6
+
+# OS information
+echo ""
+echo "=== SYSTEM INFORMATION ==="
+if [ -r /etc/os-release ]; then
+  grep -E '^(NAME|VERSION)=' /etc/os-release | sed 's/.*=//' | sed 's/"//g'
+elif [ -r /etc/release ]; then
+  cat /etc/release
+elif [ -r /etc/version ]; then
+  cat /etc/version
+else
+  uname -sr
+fi
