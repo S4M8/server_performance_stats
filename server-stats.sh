@@ -33,8 +33,16 @@ echo ""
 echo "=== SYSTEM RESOURCES ==="
 
 # CPU information
-number_of_cores=$(grep -c "^processor" /proc/cpuinfo 2>/dev/null || echo "unknown")
+number_of_cores=$(grep -c "^processor" /proc/cpuinfo 2>/dev/null || echo "1")
+total_cpu=$(ps -eo pcpu | awk 'NR>1 {sum+=$1} END {print (sum ? sum : 0)}')
+if [ "$number_of_cores" != "unknown" ] && [ "$number_of_cores" -gt 0 ]; then
+  average_per_core=$(awk -v total="$total_cpu" -v cores="$number_of_cores" 'BEGIN {printf "%.2f", total/cores}')
+else
+  average_per_core="0.00"
+fi
 echo "Number of CPU cores: $number_of_cores"
+echo "Total CPU usage: ${total_cpu}%"
+echo "Average CPU usage per core: ${average_per_core}%"
 
 # Memory usage
 if [ -r /proc/meminfo ]; then
