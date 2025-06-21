@@ -5,7 +5,14 @@
 
 # Sever Uptime
 echo "==SYSTEM STATUS=="
-uptime
+uptime_raw=$(uptime)
+# Extract uptime portion (everything before load average)
+uptime_part=$(echo "$uptime_raw" | sed 's/,.*load average.*//')
+# Extract load average portion
+load_part=$(echo "$uptime_raw" | sed 's/.*load average: //')
+
+echo "System uptime: $uptime_part"
+echo "Load averages (1m, 5m, 15m): $load_part"
 
 # User Information
 echo ""
